@@ -10,6 +10,8 @@
 #include "usart.h"	
 #include "dma.h"
 #include "system.h"
+ #include "hmi.h"
+#include "decode.h"
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序只供学习使用，未经作者许可，不得用于其它任何用途
 //ALIENTEK战舰STM32开发板V3
@@ -283,7 +285,7 @@ u16 mp3_get_tnum(u8 *path)
 }
 
 
-void mp3_get_flist(u16 totmp3num,_MP3_INFO *_info)//获取MP3文件名列表
+void mp3_get_flist(u16 totmp3num,_MP3_INFO *_info)//获取MP3文件索引
 {
 	
 	u8 res;
@@ -351,11 +353,6 @@ void mp3_get_flist(u16 totmp3num,_MP3_INFO *_info)//获取MP3文件名列表
 }
 
 
-//接收文件名，返回名称，作者等信息
-void mp3_getFileInfo(u16 index,_MP3_DETAIL *detail)
-{
-	
-}
 
 //接收文件索引号，返回文件名，调用函数在堆栈段分配的空间退出后会丢失，要求fename已经预先分配好内存
 u8 mp3_getFilename(u16 index,u8 *fename)
@@ -397,6 +394,138 @@ u8 mp3_getFilename(u16 index,u8 *fename)
 	
 	myfree(SRAMIN,mp3fileinfo.lfname);	//释放内存		
 return -1;	
+}
+//_LabelFrameHead label;
+//接收文件名，返回名称，作者等信息
+void mp3_getSongInfo(uint16_t *filename,char *frameLabel,char *detail)
+{
+	FIL* fmp3;
+	_LabelHead	buffer;//标签头
+	_LabelFrameHead label;//标签帧
+	uint16_t res;
+		long  Size;//lable size
+	long lsize;
+	char *typ1=NULL;
+	int i;
+	
+	fmp3=(FIL*)mymalloc(SRAMIN,sizeof(FIL));//申请文件描述符内存
+	
+	res=f_open(fmp3,(const TCHAR*)filename,FA_READ);//打开文件
+		if(res!=FR_OK)
+			return;
+		/*移动到文件开头*/ 
+    res = f_lseek(fmp3,0);
+		res=f_read(fmp3,&buffer,sizeof(_LabelHead),(UINT*)&br);//读取MP3标签头
+		//计算标签头尺寸
+		Size=(buffer.Size[0]&0x7F)*0x200000+(buffer.Size[1]&0x7F)*0x400+(buffer.Size[2]&0x7F)*0x80+(buffer.Size[3]&0x7F);
+	
+		
+		/*读取标签帧，提取信息*/
+	while((f_tell(fmp3)+10 ) <= Size)
+{
+	res=f_read(fmp3,&label,sizeof(_LabelFrameHead),(UINT*)&br);
+	 lsize = label.Size[0]*0x100000000 + label.Size[1]*0x10000+ label.Size[2]*0x100 +label.Size[3];
+	
+	 //printf("ID->%s\n",label.ID);
+	 if((strncmp(label.ID, frameLabel, 4) == 0))//寻找帧标识
+	{
+			//detail = (char*)mymalloc(SRAMIN,lsize);//申请标识对应内容空间
+		res=f_read(fmp3,detail,lsize,(UINT*)&br);//读取帧标识内容
+		break;
+	}
+	else
+	{
+		res=f_lseek(fmp3,f_tell(fmp3)+lsize);//定位到下一个标签帧
+	}
+}
+
+
+
+		if((strncmp( frameLabel, "TIT2", 4) == 0))//仅在tit2时进行编码转换
+		{
+	//此时detail已近指向读取到的标签帧将进行转码操作
+	shiftCode((uint8_t *)detail,br,3,0);//将字符串左移3位，去除编码标志和前缀
+				//debug ok
+			
+	UnicodeToGBK((WCHAR *)detail,br-3);//unicode转gbk
+		}
+		
+		
+		
+	
+		//myfree(SRAMIN,typ1);				//释放内存	
+		myfree(SRAMIN,fmp3);				//释放内存			
+}
+
+
+
+/*
+int *lognfo;
+loginfo=mymalloc(SRAMIN,(info.filenum)*(sizeof(int)));//为系统log文件字节定位数组申请空间
+*/
+
+/*将歌曲名列表写入系统文件，并设置字节地址索引*/
+void createSongLog(uint8_t *logName,_MP3_INFO *_info,int *loginfo)
+{
+	//---------------------------------------------------------------------
+	int g;
+	//
+	uint8_t i,num;
+	uint16_t t;
+	uint8_t *fname;
+	FIL* flog;
+	uint16_t res;
+	uint16_t bytesum=0,tbyte=0;
+	char *pdetail,*tname;
+	
+	flog=(FIL*)mymalloc(SRAMIN,sizeof(FIL));//申请文件描述符内存
+	fname=mymalloc(SRAMIN,_MAX_LFN*2+1);	//为长文件缓存区分配内存
+	pdetail=(char*)mymalloc(SRAMIN,50);//申请MP3标签内存
+	tname=(char*)mymalloc(SRAMIN,50);//申请MP3标签内存
+	
+	num=_info->filenum;
+	delay_ms(200);
+	res=f_open(flog,(const TCHAR*)logName,FA_OPEN_ALWAYS|FA_WRITE);//创建系统文件
+	if(res!=FR_OK)
+	{
+		printf("sys>>create logfile err\n");
+		return;
+	}
+	for(i=0;i<num;i++)
+	{
+		mp3_getFilename(_info->filelist[i],fname);//获取文件名
+		mp3_getSongInfo((uint16_t *)fname,"TIT2",pdetail);//读取标签帧内容
+		delay_ms(20);
+		//*将每一行的起始字符字节地址记录下来，便于快速定位
+		loginfo[i]=bytesum;
+		printf("f>>%s\n",fname);
+		printf(">>>%s\n",pdetail);//调试输出读到的文件名
+		//
+		//
+		delay_ms(100);
+		tbyte=f_printf(flog,"%s",pdetail);//写入文件
+		f_printf(flog,"%c",'\n');//写入换行符
+		
+		delay_ms(100);
+		//printf("=>%d\n",tbyte);
+		bytesum+=tbyte;
+		//清空数组
+		delay_ms(100);
+		for(t=0;t<50;t++)
+		{
+			pdetail[t]=0x00;
+		}
+		
+	}
+	
+	f_printf(flog,"%c",0x80);//写入终止符
+	f_close(flog);
+	//归还空间
+	myfree(SRAMIN,fname);
+	myfree(SRAMIN,flog);
+	myfree(SRAMIN,pdetail);
+	myfree(SRAMIN,tname);
+	
 }
 
 
@@ -458,5 +587,26 @@ void mp3_openNew(uint8_t *pname,FIL* pfmp3,uint8_t *pstate)//打开下一曲
 }
 
 
-
+int DrawchPic(char *fname)
+{
+	FIL *fp;//全局文件描述
+	int res,brt;
+	unsigned char  ch;
+	fp=(FIL*)mymalloc(SRAMIN,sizeof(FIL));//申请文件描述符内存
+		res=f_open(fp,(const TCHAR*)fname,FA_READ);//打开新文件
+	if(res!=FR_OK)
+	{
+		printf("ferr\n");
+		myfree(SRAMIN,fp);
+		return -1;
+	}
+	while((	res=f_read(fp,&ch,1,(UINT*)&brt))==FR_OK&&ch!=0x80)//0x80为终止标志，避免读取超出范围
+	{
+		delay_ms(10);
+		printf("%c",ch);
+	}
+	f_close(fp);
+	myfree(SRAMIN,fp);
+	return 0;
+}
 

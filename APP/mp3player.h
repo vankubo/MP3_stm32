@@ -2,6 +2,7 @@
 #define __MP3PLAYER_H
 #include "sys.h"
 #include "ff.h"
+#include "mp3FileDef.h"
 //////////////////////////////////////////////////////////////////////////////////	 
 //本程序只供学习使用，未经作者许可，不得用于其它任何用途
 //ALIENTEK战舰STM32开发板V3
@@ -44,8 +45,8 @@ void mp3_msg_show(u32 lenth);
 //functions
 
 u16 mp3_get_tnum(u8 *path);//返回目录下有效（mp3）文件的个数
-void mp3_get_flist(u16 totmp3num,_MP3_INFO *_info);//获取MP3文件名列表
-void mp3_getFileInfo(u16 index,_MP3_DETAIL *detail);//获取文件的详细信息
+void mp3_get_flist(u16 totmp3num,_MP3_INFO *_info);//获取MP3文件索引
+void mp3_getSongInfo(uint16_t *filename,char *frameLabel,char *detail);//获取文件的作者，专辑等详细信息
 //接收文件索引号，返回文件名，要求fename已经预先分配好内存
 u8 mp3_getFilename(u16 index,u8 *fename);
 void printIndex(_MP3_INFO *_info);//打印文件索引号
@@ -53,6 +54,9 @@ void printFilList(_MP3_INFO *_info);//打印文件名列表
 void mp3_pause(uint8_t *pstate);//暂停播放
 void mp3_continue(uint8_t *pstate);//继续播放
 void mp3_openNew(uint8_t *pname,FIL* pfmp3,uint8_t *pstate);//打开下一曲
+/*将歌曲名列表写入系统文件，并设置字节地址索引*/
+void createSongLog(uint8_t *logName,_MP3_INFO *_info,int *loginfo);
+int DrawchPic(char *fname);
 
 
 u8 play_a_song(u8 *filename);

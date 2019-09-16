@@ -647,6 +647,11 @@
               <FileType>1</FileType>
               <FilePath>..\TEXT\fontupd.c</FilePath>
             </File>
+            <File>
+              <FileName>decode.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\TEXT\decode.c</FilePath>
+            </File>
           </Files>
         </Group>
       </Groups>

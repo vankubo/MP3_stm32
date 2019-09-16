@@ -45,7 +45,9 @@ void doOperate(uint8_t *pindex,uint8_t *pstate,u16 pfnum);//执行按键操作
 //====================
  int main(void)
  {	 
-	
+	 u16 asciitest;
+	 //====
+	int *loginfo;
 	 uint8_t testBuff[32];
 	 uint8_t c='A';//按键键值
 	 uint8_t cindex=0;//文件列表索引号
@@ -56,7 +58,7 @@ void doOperate(uint8_t *pindex,uint8_t *pstate,u16 pfnum);//执行按键操作
 	 //================
 	delay_init();	    	 //延时函数初始化	  
   NVIC_PriorityGroupConfig(NVIC_PriorityGroup_2);//设置中断优先级分组为组2：2位抢占优先级，2位响应优先级
-	uart_init(115200);	 	//串口初始化为115200
+	uart_init(9600);	 	//串口初始化为115200
 	USART_Config();//串口屏串口初始化
  	LED_Init();		  			//初始化与LED连接的硬件接口
 	//LCD_Init();			   		//初始化LCD   
@@ -70,8 +72,7 @@ void doOperate(uint8_t *pindex,uint8_t *pstate,u16 pfnum);//执行按键操作
 	//=======================================
 	//hmi
 	delay_ms(500);	
-	CMD("page 1",0,0);
-	
+	//CMD("page 1",0,0);
 	//=====================================
 	while(SD_Init())//检测不到SD卡
 	{
@@ -116,10 +117,11 @@ void doOperate(uint8_t *pindex,uint8_t *pstate,u16 pfnum);//执行按键操作
 		delay_ms(200);
 		LED0=!LED0;//DS0闪烁
 	}	
-	printf("total=>%dMB\tfree=>%dMB\n",SD_total>>10,SD_free>>10);
+	//printf("total=>%dMB\tfree=>%dMB\n",SD_total>>10,SD_free>>10);
 	//====================================
-	printf("存储器测试...");
-		printf("Ram Test:0X%04X\r\n",VS_Ram_Test());//打印vs1053 RAM测试结果	0X83FF=ok
+	//printf("存储器测试...");
+	VS_Ram_Test();
+		//printf("Ram Test:0X%04X\r\n",VS_Ram_Test());//打印vs1053 RAM测试结果	0X83FF=ok
 	VS_Sine_Test();	 //正弦波测试
 	//====================================
 	
@@ -130,9 +132,9 @@ void doOperate(uint8_t *pindex,uint8_t *pstate,u16 pfnum);//执行按键操作
 	filename=mp3_getFilename(info.filelist[t]);
 	myfree(SRAMIN,filename);
 	*/
-	printIndex(&info);//打印文件索引号
+	//printIndex(&info);//打印文件索引号
 	delay_ms(200);
-	printFilList(&info);//打印文件名列表
+	//printFilList(&info);//打印文件名列表
 	/*
 	//====================================
 	res=f_typetell("0:/MUSIC/cry.mp3");//得到文件后缀	
@@ -149,11 +151,20 @@ void doOperate(uint8_t *pindex,uint8_t *pstate,u16 pfnum);//执行按键操作
 	}
 	//=================================
 	*/
+	//==========================================
+	loginfo=mymalloc(SRAMIN,(info.filenum)*(sizeof(int)));//为系统log文件字节定位数组申请空间
+	createSongLog("0:/sys/loginfo.txt",&info,loginfo);
+	printf("\n*********************************\n");
+	DrawchPic("0:/sys/loginfo.txt");
+	//=========================================
 	cindex=0;
 	mp3_getFilename(info.filelist[cindex],filename);//得到文件名
-				printf("play->%s\n",filename);
+				//printf("play->%s\n",filename);
+				//printf("你好");
 				delay_ms(200);
-				mp3_openNew(filename,fmp3,&state);//打开下一曲
+				//tit2读取测试
+				//
+				//mp3_openNew(filename,fmp3,&state);//打开下一曲
 	//==========================================
 	VS_HD_Reset();//vs1053硬件复位
 	VS_Soft_Reset();
